@@ -1,0 +1,9 @@
+pyshark==0.6
+scapy==2.5.0
+colorama==0.4.6
+pandas==2.2.2
+scikit-learn==1.5.1
+psutil==6.0.0
+cryptography==43.0.3
+
+
