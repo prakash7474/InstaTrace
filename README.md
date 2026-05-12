@@ -47,13 +47,11 @@ python3 main.py train-ml
 ### Live capture permissions
 Depending on your environment, you may need permissions to capture packets (e.g., running with sudo or granting capture capabilities). Only do this in authorized labs.
 
-## Screenshots
-- [Placeholder] Terminal UI screenshot
-- [Placeholder] Alert feed screenshot
-
 ## Feature Added: Instagram-like DM AES-GCM demo (metadata-triggered locally)
 
 This project includes an educational AES-256-GCM encrypt/decrypt utility that builds an Instagram-like DM JSON payload.
+
+In addition, a metadata-only detector (`InstagramDMCryptoDetector`) can trigger locally (no real Instagram decryption) and logs an alert after running a local encrypt/decrypt verification cycle.
 
 - New module: `crypto/instagram_dm_encryptor.py`
 - Dependency: `cryptography`
@@ -71,5 +69,4 @@ python3 main.py dm-crypto-verify --text "Hello, this is a secret DM!"
 - Better DDoS classifier using time-series features
 - Optional integration with Elasticsearch/Grafana for dashboards
 - Additional protocol parsers (QUIC, SMTP, etc.)
-
 

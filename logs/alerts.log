@@ -1,2 +1,0 @@
-2026-05-10 17:31:18,747 | WARNING | DM crypto verification triggered (text='Hello, this is a secret DM!'); decrypted='Hello, this is a secret DM!'
-2026-05-10 17:31:47,724 | WARNING | DM crypto verification triggered (text='Hello, this is a secret DM!'); decrypted='Hello, this is a secret DM!'

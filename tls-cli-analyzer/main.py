@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import asyncio
 from typing import Optional
+
 
 from utils.banner import print_banner
 from utils.logger import AppLogger
@@ -22,7 +24,9 @@ from parser.packet_parser import PacketParser
 from detection.portscan_detector import PortscanDetector
 from detection.ddos_detector import DdosDetector
 from detection.anomaly_detector import AnomalyDetector
+from detection.instagram_dm_crypto_detector import InstagramDMCryptoDetector
 from crypto.instagram_dm_encryptor import InstagramDMEncryptor
+
 
 
 
@@ -31,7 +35,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         prog="Secure TLS Traffic Analyzer CLI",
         description="Live packet monitoring + defensive TLS/DNS/HTTP metadata analysis.",
     )
+    # If user runs `python main.py` with no subcommand, we run an automatic capture+save+parse pipeline.
+    # These args apply to that default pipeline too.
+    p.add_argument("--iface", default=None, help="Network interface name (optional; used in auto mode)")
+    p.add_argument("--time", type=int, default=60, help="Capture duration seconds (used in auto mode)")
+    p.add_argument("--pcap-out", default="./pcaps/auto_capture.pcapng", help="PCAP output path (used in auto mode)")
+
     sub = p.add_subparsers(dest="command", required=False)
+
 
     # live
     p_live = sub.add_parser("live", help="Start live capture + real-time analysis")
@@ -139,7 +150,9 @@ def run_menu(args: argparse.Namespace, logger: AppLogger) -> int:
             detectors = {
                 "portscan": PortscanDetector(logger=logger),
                 "ddos": DdosDetector(logger=logger),
+                "ig_dm_crypto_demo": InstagramDMCryptoDetector(logger=logger),
             }
+
             ml = AnomalyDetector(logger=logger)
             cap.run(parser=parser, detectors=detectors, ml=ml)
 
@@ -149,7 +162,9 @@ def run_menu(args: argparse.Namespace, logger: AppLogger) -> int:
             detectors = {
                 "portscan": PortscanDetector(logger=logger),
                 "ddos": DdosDetector(logger=logger),
+                "ig_dm_crypto_demo": InstagramDMCryptoDetector(logger=logger),
             }
+
             ml = AnomalyDetector(logger=logger)
             parser.parse_pcap(pcap_path, detectors=detectors, ml=ml)
 
@@ -181,12 +196,43 @@ def main(argv: Optional[list[str]] = None) -> int:
     # Setup logger
     logger = AppLogger(base_dir=".")
 
-    # If no subcommand provided -> interactive menu
+    # If no subcommand provided -> automatic capture + save + parse pipeline
+    # Some pyshark versions expect an asyncio loop in the main thread.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     if args_ns.command is None:
-        return run_menu(args_ns, logger)
+
+        from capture.tshark_save_capture import TsharkSaveCapture
+
+        print_banner()
+        iface = detect_capture_interface() if not args_ns.iface else args_ns.iface
+        out_dir = "./pcaps"
+        os.makedirs(out_dir, exist_ok=True)
+        pcap_out = getattr(args_ns, "pcap_out", "./pcaps/auto_capture.pcapng")
+
+        # Default to tshark for reliable PCAP saving.
+        # (If tshark is missing, the user will get a clear error.)
+        cap = TsharkSaveCapture(interface=iface, duration_seconds=args_ns.time, pcap_out=pcap_out)
+        print(f"{Colors.CYAN}[AUTO]{Colors.RESET} Capturing on iface={iface} for {args_ns.time}s -> {pcap_out}")
+        cap.run()
+        print(f"{Colors.GREEN}[AUTO]{Colors.RESET} Capture complete. Parsing PCAP...")
+
+        parser = PacketParser(logger=logger)
+        detectors = {
+            "portscan": PortscanDetector(logger=logger),
+            "ddos": DdosDetector(logger=logger),
+            "ig_dm_crypto_demo": InstagramDMCryptoDetector(logger=logger),
+        }
+        ml = AnomalyDetector(logger=logger)
+        parser.parse_pcap(pcap_out, detectors=detectors, ml=ml)
+        return 0
 
     # Subcommand execution
     if args_ns.command == "live":
+
         print_banner()
         iface = detect_capture_interface() if not args_ns.iface else args_ns.iface
         cap = TsharkCapture(interface=iface, duration_seconds=args_ns.time) if args_ns.use_tshark else LiveCapture(
@@ -196,7 +242,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         detectors = {
             "portscan": PortscanDetector(logger=logger),
             "ddos": DdosDetector(logger=logger),
+            "ig_dm_crypto_demo": InstagramDMCryptoDetector(logger=logger),
         }
+
         ml = AnomalyDetector(logger=logger)
         cap.run(parser=parser, detectors=detectors, ml=ml)
         return 0
@@ -206,7 +254,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         detectors = {
             "portscan": PortscanDetector(logger=logger),
             "ddos": DdosDetector(logger=logger),
+            "ig_dm_crypto_demo": InstagramDMCryptoDetector(logger=logger),
         }
+
         ml = AnomalyDetector(logger=logger)
         parser.parse_pcap(args_ns.pcap, detectors=detectors, ml=ml)
         return 0
